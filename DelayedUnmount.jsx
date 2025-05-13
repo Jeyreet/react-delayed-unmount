@@ -1,5 +1,11 @@
 import { useEffect, useRef } from 'react'
 
+const updateIndexes = children => {
+  Array.from(children).forEach((child, index) => {
+    child.dataset.index = String(index)
+  })
+}
+
 export const DelayedUnmount = ({ timeout = 500, children }) => {
   const ref = useRef(null)
 
@@ -8,12 +14,7 @@ export const DelayedUnmount = ({ timeout = 500, children }) => {
       for (const mutation of mutations) {
         for (const addedNode of mutation.addedNodes) {
           if (addedNode.nodeType === Node.ELEMENT_NODE) {
-            const container = mutation.target
-
-            Array.from(container.children).forEach((child, index) => {
-              child.dataset.index = String(index)
-            })
-
+            updateIndexes(mutation.target.children)
             addedNode.dataset.mounted = 'true'
           }
         }
@@ -24,10 +25,7 @@ export const DelayedUnmount = ({ timeout = 500, children }) => {
             const index = removedNode.dataset.index
 
             if (removedNode.dataset.unmounted) {
-              Array.from(container.children).forEach((child, index) => {
-                child.dataset.index = String(index)
-              })
-
+              updateIndexes(container.children)
               return
             }
 
@@ -45,13 +43,11 @@ export const DelayedUnmount = ({ timeout = 500, children }) => {
       }
     })
 
+    updateIndexes(ref.current.children)
+
     observer.observe(ref.current, {
       childList: true,
       subtree: false
-    })
-
-    Array.from(ref.current.children).forEach((child, index) => {
-      child.dataset.index = String(index)
     })
 
     return () => observer.disconnect()
