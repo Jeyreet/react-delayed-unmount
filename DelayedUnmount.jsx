@@ -1,10 +1,6 @@
 import { useEffect, useRef } from 'react'
 
-export const DelayedUnmount = ({
-  timeout = 0,
-  onRemove = node => {},
-  children
-}) => {
+export const DelayedUnmount = ({ timeout = 500, children }) => {
   const ref = useRef(null)
 
   useEffect(() => {
@@ -17,6 +13,8 @@ export const DelayedUnmount = ({
             Array.from(container.children).forEach((child, index) => {
               child.dataset.index = String(index)
             })
+
+            addedNode.dataset.mounted = 'true'
           }
         }
 
@@ -38,8 +36,6 @@ export const DelayedUnmount = ({
 
             if (nextNode) nextNode.before(removedNode)
             else container.append(removedNode)
-
-            requestAnimationFrame(() => onRemove(removedNode))
 
             setTimeout(() => {
               removedNode.remove()
