@@ -21,7 +21,6 @@ import './your-animation.css'
 
 <DelayedUnmount
   timeout={500}
-  onRemove={el => el.classList.add('exit')}>
   {items.map(item => (
     <YourComponent key={item.id} {...item} />
   ))}
