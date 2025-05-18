@@ -47,9 +47,13 @@ import './your-animation.css'
 }
 ```
 
-| Prop       | Type     | Default    | Description                                                           |
-| ---------- | -------- | ---------- | --------------------------------------------------------------------- |
-| `timeout`  | `number` | `0`        | How long (ms) to keep the removed DOM element                         |
+| Prop            | Type               | Default    | Description                                                                 |
+| --------------- | ------------------ | ---------- | --------------------------------------------------------------------------- |
+| `timeout`       | `number`           | `0`        | How long (ms) to keep the removed DOM element                               |
+| `component`     | `string \| React.ComponentType` | `'div'`     | Optional wrapper component (e.g. `'ul'`, `Fragment`, or custom component)    |
+| `componentProps`| `object`           | `{}`       | Props passed to the wrapper component                                       |
+| `children`      | `React.ReactNode`  | —          | Elements to observe and animate during unmount                              |
+| `...props`      | `any`              | —          | Additional props passed to the wrapper component                            |
 
 ## 📦 How it works
 
