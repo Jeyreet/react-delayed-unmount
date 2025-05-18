@@ -1,57 +1,128 @@
 import { useEffect, useRef } from 'react'
 
-const updateIndexes = children => {
-  Array.from(children).forEach((child, index) => {
-    child.dataset.index = String(index)
-  })
+const updateIds = children => {
+  Array.from(children).reduce((accumulator, child) => {
+    if (child.dataset.unmounted === undefined) {
+      child.dataset.id = String(accumulator)
+      delete child.clone
+      delete child.prev
+      return accumulator + 1
+    }
+    return accumulator
+  }, 0)
 }
 
-export const DelayedUnmount = ({ timeout = 500, children }) => {
-  const ref = useRef(null)
+const observerOptions = {
+  childList: true,
+  subtree: false
+}
+
+const areStatesDifferent = (state, newState) => {
+  if (state.length !== newState.length) return true
+
+  for (let i = 0; i < Math.max(state.length, newState.length); i++)
+    if (state[i]?.dataset.id !== newState[i]?.dataset.id) return true
+
+  return false
+}
+
+export const DelayedUnmount = ({
+  component: Component = 'div',
+  componentProps = {},
+  timeout = 500,
+  children,
+  ...props
+}) => {
+  const containerRef = useRef(null)
+  const stateRef = useRef(null)
 
   useEffect(() => {
-    const observer = new MutationObserver(mutations => {
-      for (const mutation of mutations) {
-        for (const addedNode of mutation.addedNodes) {
-          if (addedNode.nodeType === Node.ELEMENT_NODE) {
-            updateIndexes(mutation.target.children)
-            addedNode.dataset.mounted = 'true'
-          }
-        }
+    const observer = new MutationObserver(() => {
+      const container = containerRef.current
+      const state = stateRef.current
+      const newState = Array.from(container.children).filter(
+        child => child.dataset.unmounted === undefined
+      )
 
-        for (const removedNode of mutation.removedNodes) {
-          if (removedNode.nodeType === Node.ELEMENT_NODE) {
-            const container = mutation.target
-            const index = removedNode.dataset.index
+      if (areStatesDifferent(state, newState)) {
+        observer.disconnect()
 
-            if (removedNode.dataset.unmounted) {
-              updateIndexes(container.children)
-              return
+        let stable = []
+        const toUnmount = []
+
+        for (let i = 0; i < newState.length; i++) {
+          let nowChild = newState[i]
+          if (nowChild.dataset.id === undefined) continue
+          const possibleStable = [nowChild]
+
+          for (let j = i; j < newState.length; j++) {
+            const child = newState[j]
+
+            if (Number(child.dataset.id) > Number(nowChild.dataset.id)) {
+              nowChild = child
+              possibleStable.push(child)
             }
+          }
 
-            removedNode.dataset.unmounted = 'true'
-            const nextNode = container.children[Number(index)]
+          if (possibleStable.length > stable.length) stable = possibleStable
+          if (stable.length >= newState.length - i) break
+        }
 
-            if (nextNode) nextNode.before(removedNode)
-            else container.append(removedNode)
+        let unmountedIndex = 0
 
-            setTimeout(() => {
-              removedNode.remove()
-            }, timeout)
+        for (const child of state) {
+          if (stable[unmountedIndex]?.dataset.id === child.dataset.id)
+            unmountedIndex++
+          else {
+            child.clone = child.cloneNode(true)
+            child.prev = state[Number(child.dataset.id) - 1]
+            child.clone.dataset.id = child.dataset.id + '_old'
+            toUnmount.push(child)
           }
         }
+
+        for (const child of toUnmount) {
+          if (child.prev) {
+            if (child.prev.clone?.isConnected)
+              child.prev.clone.after(child.clone)
+            else child.prev.after(child.clone)
+          } else container.prepend(child.clone)
+
+          child.clone.dataset.unmounted = 'true'
+          delete child.clone.dataset.mounted
+          setTimeout(child.clone.remove.bind(child.clone), timeout)
+        }
+
+        let mountedIndex = 0
+
+        for (const child of newState) {
+          delete child.dataset.mounted
+
+          if (
+            child.dataset.id !== undefined &&
+            stable[mountedIndex]?.dataset.id === child.dataset.id
+          )
+            mountedIndex++
+          else requestAnimationFrame(() => (child.dataset.mounted = 'true'))
+        }
+
+        stateRef.current = newState
+        updateIds(container.children)
+        observer.observe(container, observerOptions)
       }
     })
 
-    updateIndexes(ref.current.children)
+    updateIds(containerRef.current.children)
+    stateRef.current = Array.from(containerRef.current.children)
 
-    observer.observe(ref.current, {
-      childList: true,
-      subtree: false
-    })
+    observer.observe(containerRef.current, observerOptions)
 
     return () => observer.disconnect()
-  }, [])
+  }, [timeout])
 
-  return <div ref={ref}>{children}</div>
+  return (
+    <Component ref={containerRef} {...componentProps} {...props}>
+      {children}
+    </Component>
+  )
 }
